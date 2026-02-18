@@ -32,7 +32,104 @@ class BetterInspectPanel {
   async init() {
     await this.loadSettings();
     this.setupEventListeners();
+    this.setupRealTimeCapture();
     await this.loadNetworkRequests();
+  }
+
+  setupRealTimeCapture() {
+    // Capture new requests in real-time as they happen
+    if (chrome.devtools && chrome.devtools.network) {
+      chrome.devtools.network.onRequestFinished.addListener((request) => {
+        // Get response content
+        request.getContent((content, encoding) => {
+          const processed = this.processRealTimeRequest(request, content, encoding);
+          if (processed) {
+            // Check if request already exists
+            const exists = this.requests.some(r => r.id === processed.id);
+            if (!exists) {
+              this.requests.push(processed);
+              this.sortRequests();
+              this.updateRequestTable();
+              this.hideEmptyState();
+            }
+          }
+        });
+      });
+    }
+  }
+
+  processRealTimeRequest(request, content, encoding) {
+    try {
+      // Extract headers as plain objects
+      const requestHeaders = {};
+      if (request.request && request.request.headers) {
+        request.request.headers.forEach(h => {
+          requestHeaders[h.name.toLowerCase()] = h.value;
+        });
+      }
+
+      const responseHeaders = {};
+      if (request.response && request.response.headers) {
+        request.response.headers.forEach(h => {
+          responseHeaders[h.name.toLowerCase()] = h.value;
+        });
+      }
+
+      // Apply header filtering
+      const filteredRequestHeaders = this.harParser.filterHeaders(requestHeaders, this.settings.headerFilters);
+      const filteredResponseHeaders = this.harParser.filterHeaders(responseHeaders, this.settings.headerFilters);
+
+      // Handle request body
+      let requestBody = '';
+      if (request.request && request.request.postData) {
+        requestBody = request.request.postData.text || '';
+      }
+
+      // Handle response body
+      let responseBody = content || '';
+      if (encoding === 'base64') {
+        try {
+          responseBody = atob(content);
+        } catch (e) {
+          responseBody = '[Binary data]';
+        }
+      }
+
+      // Truncate if needed
+      const maxSize = this.settings.responseHandling.maxBodySize || 100000;
+      if (this.settings.responseHandling.truncateLarge && responseBody.length > maxSize) {
+        responseBody = responseBody.substring(0, maxSize) + '\n\n... [Response truncated]';
+      }
+
+      const mimeType = request.response?.content?.mimeType || 
+                       (request.response?.headers?.find(h => h.name.toLowerCase() === 'content-type')?.value) || 
+                       'unknown';
+
+      return {
+        id: request.url + '_' + (request.startedDateTime || Date.now()),
+        url: request.url,
+        method: request.method,
+        requestHeaders: filteredRequestHeaders,
+        requestBody: requestBody,
+        responseStatus: request.response?.status || 0,
+        responseStatusText: request.response?.statusText || '',
+        responseHeaders: filteredResponseHeaders,
+        responseBody: responseBody,
+        responseSize: request.response?.content?.size || responseBody.length,
+        mimeType: mimeType,
+        startedDateTime: request.startedDateTime || new Date().toISOString(),
+        time: request.time || 0,
+        timings: request.timings || {},
+        queryString: request.request?.queryString || [],
+        type: this.harParser.determineRequestType(
+          { mimeType: mimeType }, 
+          request.url
+        )
+      };
+    } catch (error) {
+      console.error('Error processing real-time request:', error);
+      return null;
+    }
   }
 
   async loadSettings() {
