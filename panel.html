@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+    <title>betterinspect</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div class="devtools-panel" id="devtools-panel">
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <span class="toolbar-title">🔍 betterinspect</span>
+      </div>
+      <div class="toolbar-group">
+        <div class="search-container">
+          <input type="text" id="search-input" class="search-input" placeholder="Filter requests...">
+          <button id="clear-search" class="toolbar-button" title="Clear filter">✕</button>
+        </div>
+        <select id="filter-type" class="filter-select">
+          <option value="all">All Types</option>
+          <option value="xhr">XHR</option>
+          <option value="script">Script</option>
+          <option value="stylesheet">CSS</option>
+          <option value="image">Image</option>
+          <option value="document">Document</option>
+          <option value="font">Font</option>
+          <option value="other">Other</option>
+        </select>
+        <select id="filter-status" class="filter-select">
+          <option value="all">All Status</option>
+          <option value="success">2xx Success</option>
+          <option value="redirect">3xx Redirect</option>
+          <option value="error">4xx Client Error</option>
+          <option value="server">5xx Server Error</option>
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <button id="refresh-requests" class="toolbar-button" title="Refresh requests">🔄</button>
+        <button id="clear-selected" class="toolbar-button" title="Clear selection">Clear</button>
+        <button id="settings-btn" class="toolbar-button" title="Settings">⚙️</button>
+      </div>
+    </div>
+
+    <!-- Request List -->
+    <div class="request-list-container">
+      <table class="request-table">
+        <thead>
+          <tr>
+            <th width="30">
+              <input type="checkbox" id="select-all-checkbox" title="Select all">
+            </th>
+            <th width="40">#</th>
+            <th class="sortable" data-sort="name">Name</th>
+            <th class="sortable" data-sort="status">Status</th>
+            <th class="sortable" data-sort="type">Type</th>
+            <th class="sortable" data-sort="size">Size</th>
+            <th class="sortable" data-sort="time">Time</th>
+            <th width="120">Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="request-table-body">
+          <!-- Requests will be populated here -->
+        </tbody>
+      </table>
+      <div id="empty-state" class="empty-state" style="display: none;">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">No network requests found</div>
+        <div class="empty-description">Refresh the page or navigate to trigger network activity</div>
+        <button id="refresh-empty" class="primary-button">Refresh</button>
+      </div>
+    </div>
+
+    <!-- Selection Summary and Actions -->
+    <div class="selection-bar">
+      <div class="selection-info">
+        <span id="selection-count">0 requests selected</span>
+        <span id="selection-summary" class="selection-summary"></span>
+      </div>
+      <div class="selection-actions">
+        <button id="copy-for-ai" class="copy-button" disabled>
+          📋 Copy for AI
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="close-button" id="close-settings">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <h3>Header Filtering</h3>
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="filter-browser-headers">
+              Remove browser headers (User-Agent, Accept, etc.)
+            </label>
+          </div>
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="filter-auth-headers">
+              Remove authentication headers (Authorization, API keys)
+            </label>
+          </div>
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="filter-cookies">
+              Remove cookie headers
+            </label>
+          </div>
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="filter-cache-headers">
+              Remove cache headers
+            </label>
+          </div>
+          <div class="setting-group">
+            <label for="custom-headers">Custom headers to remove (comma-separated):</label>
+            <input type="text" id="custom-headers" placeholder="X-Request-ID, X-Debug-Mode">
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Response Handling</h3>
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="truncate-large">
+              Truncate large responses
+            </label>
+          </div>
+          <div class="setting-group">
+            <label for="max-body-size">Max response body size (bytes):</label>
+            <input type="number" id="max-body-size" min="1000" max="1000000">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="reset-settings" class="secondary-button">Reset to Defaults</button>
+        <button id="save-settings" class="primary-button">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast" style="display: none;">
+    <span id="toast-message"></span>
+  </div>
+
+  <!-- Scripts -->
+  <script src="lib/har-parser.js"></script>
+  <script src="lib/markdown-formatter.js"></script>
+  <script src="lib/curl-builder.js"></script>
+  <script src="lib/utils.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>

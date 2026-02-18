@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>betterinspect Settings</title>
+  <style>
+    body {
+      font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+      font-size: 14px;
+      margin: 0;
+      padding: 20px;
+      background-color: #f8f9fa;
+      color: #333;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 500;
+    }
+
+    .header p {
+      margin: 8px 0 0 0;
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .content {
+      padding: 20px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+    }
+
+    .section h2 {
+      margin: 0 0 15px 0;
+      font-size: 18px;
+      font-weight: 500;
+      color: #333;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 5px;
+    }
+
+    .setting {
+      margin-bottom: 15px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 6px;
+      border-left: 4px solid #667eea;
+    }
+
+    .setting label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .setting input[type="checkbox"] {
+      margin-top: 2px;
+      width: 16px;
+      height: 16px;
+    }
+
+    .setting-description {
+      margin-top: 5px;
+      font-size: 12px;
+      color: #666;
+      line-height: 1.4;
+    }
+
+    .setting input[type="text"],
+    .setting input[type="number"],
+    .setting textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    .setting input:focus,
+    .setting textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      padding: 20px;
+      background-color: #f8f9fa;
+      border-top: 1px solid #e9ecef;
+    }
+
+    .button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .button-primary {
+      background-color: #667eea;
+      color: white;
+    }
+
+    .button-primary:hover {
+      background-color: #5a67d8;
+    }
+
+    .button-secondary {
+      background-color: white;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+
+    .button-secondary:hover {
+      background-color: #f8f9fa;
+    }
+
+    .button-danger {
+      background-color: #e53e3e;
+      color: white;
+    }
+
+    .button-danger:hover {
+      background-color: #c53030;
+    }
+
+    .status {
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .status.success {
+      background-color: #48bb78;
+      color: white;
+    }
+
+    .status.error {
+      background-color: #e53e3e;
+      color: white;
+    }
+
+    .icon {
+      font-size: 16px;
+      margin-right: 5px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #1a1a1a;
+        color: #e8eaed;
+      }
+
+      .container {
+        background-color: #2d2d2d;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      }
+
+      .header {
+        background: linear-gradient(135deg, #8ab4f8 0%, #a78bfa 100%);
+      }
+
+      .content {
+        color: #e8eaed;
+      }
+
+      .section h2 {
+        color: #e8eaed;
+        border-bottom-color: #8ab4f8;
+      }
+
+      .setting {
+        background-color: #363636;
+        border-left-color: #8ab4f8;
+      }
+
+      .setting-description {
+        color: #a0a0a0;
+      }
+
+      .setting input[type="text"],
+      .setting input[type="number"],
+      .setting textarea {
+        background-color: #4a4a4a;
+        color: #e8eaed;
+        border-color: #555;
+      }
+
+      .actions {
+        background-color: #363636;
+        border-top-color: #444;
+      }
+
+      .button-secondary {
+        background-color: #4a4a4a;
+        color: #e8eaed;
+        border-color: #555;
+      }
+
+      .button-secondary:hover {
+        background-color: #555;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔍 betterinspect</h1>
+      <p>Configure your AI-powered inspection tool</p>
+    </div>
+
+    <div class="content">
+      <div id="status" class="status"></div>
+
+      <div class="section">
+        <h2>🧹 Header Filtering</h2>
+        
+        <div class="setting">
+          <label>
+            <input type="checkbox" id="filter-browser-headers">
+            <span>Remove browser headers</span>
+          </label>
+          <div class="setting-description">
+            Automatically removes common browser headers like User-Agent, Accept, Accept-Language, and Accept-Encoding to reduce noise in AI output.
+          </div>
+        </div>
+
+        <div class="setting">
+          <label>
+            <input type="checkbox" id="filter-auth-headers">
+            <span>Remove authentication headers</span>
+          </label>
+          <div class="setting-description">
+            Removes sensitive authentication headers including Authorization, X-API-Key, X-Auth-Token, Bearer tokens, and other auth-related headers.
+          </div>
+        </div>
+
+        <div class="setting">
+          <label>
+            <input type="checkbox" id="filter-cookies">
+            <span>Remove cookie headers</span>
+          </label>
+          <div class="setting-description">
+            Removes Cookie and Set-Cookie headers to keep the focus on API communication rather than session management.
+          </div>
+        </div>
+
+        <div class="setting">
+          <label>
+            <input type="checkbox" id="filter-cache-headers">
+            <span>Remove cache headers</span>
+          </label>
+          <div class="setting-description">
+            Removes cache-related headers like Cache-Control, ETag, If-None-Match, Last-Modified, Expires, and Pragma.
+          </div>
+        </div>
+
+        <div class="setting">
+          <label for="custom-headers">Custom headers to remove:</label>
+          <textarea id="custom-headers" rows="3" placeholder="Enter header names, one per line or comma-separated. Examples:&#10;X-Request-ID&#10;X-Debug-Mode&#10;X-Correlation-ID"></textarea>
+          <div class="setting-description">
+            Additional headers you want to automatically filter out. One header per line or comma-separated. Case-insensitive.
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>📦 Response Handling</h2>
+        
+        <div class="setting">
+          <label>
+            <input type="checkbox" id="truncate-large">
+            <span>Truncate large responses</span>
+          </label>
+          <div class="setting-description">
+            Automatically truncate very large response bodies to keep the output manageable for AI processing.
+          </div>
+        </div>
+
+        <div class="setting">
+          <label for="max-body-size">Maximum response body size (bytes):</label>
+          <input type="number" id="max-body-size" min="1000" max="10000000" step="1000">
+          <div class="setting-description">
+            The maximum size of response bodies to include in the copied output. Larger responses will be truncated. Default: 100,000 bytes (~100KB).
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>⚙️ Application Settings</h2>
+        
+        <div class="setting">
+          <label for="default-format">Default copy format:</label>
+          <select id="default-format" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; margin-top: 8px;">
+            <option value="markdown">AI-optimized Markdown</option>
+            <option value="json">Structured JSON</option>
+            <option value="curl">cURL Commands</option>
+          </select>
+          <div class="setting-description">
+            The default format used when copying network requests. Markdown is optimized for AI analysis, while other formats are useful for different purposes.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="reset-settings" class="button button-danger">
+        <span class="icon">↺</span> Reset to Defaults
+      </button>
+      <button id="cancel-changes" class="button button-secondary">
+        <span class="icon">✕</span> Cancel
+      </button>
+      <button id="save-settings" class="button button-primary">
+        <span class="icon">✓</span> Save Settings
+      </button>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
