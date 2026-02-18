@@ -32,45 +32,62 @@ class BetterInspectPanel {
   async init() {
     await this.loadSettings();
     this.setupEventListeners();
-    this.setupRealTimeCapture();
-    await this.loadNetworkRequests();
+    this.setupMessageListener();
+    // Don't load here - wait for devtools.js to send data
+    this.showEmptyState();
+    this.showToast('Waiting for network data... Refresh the page to capture requests.');
   }
 
-  setupRealTimeCapture() {
-    // Capture new requests in real-time as they happen
-    if (chrome.devtools && chrome.devtools.network) {
-      chrome.devtools.network.onRequestFinished.addListener((request) => {
-        // Get response content
-        request.getContent((content, encoding) => {
-          const processed = this.processRealTimeRequest(request, content, encoding);
-          if (processed) {
-            // Check if request already exists
-            const exists = this.requests.some(r => r.id === processed.id);
-            if (!exists) {
-              this.requests.push(processed);
-              this.sortRequests();
-              this.updateRequestTable();
-              this.hideEmptyState();
-            }
-          }
-        });
-      });
+  setupMessageListener() {
+    // Listen for messages from devtools.js
+    window.addEventListener('message', (event) => {
+      const message = event.data;
+      
+      if (message.type === 'harData') {
+        console.log('Received HAR data:', message.entries?.length, 'entries');
+        this.processHARData(message.entries);
+      }
+      
+      if (message.type === 'requestFinished') {
+        console.log('Received real-time request:', message.request?.url);
+        this.processRealTimeRequest(message.request);
+      }
+    });
+    
+    // Request data on load
+    setTimeout(() => {
+      window.postMessage({ type: 'refreshRequests' }, '*');
+    }, 100);
+  }
+
+  processHARData(entries) {
+    if (!entries || entries.length === 0) {
+      this.requests = [];
+      this.showEmptyState();
+      this.hideToast();
+      return;
     }
+
+    this.requests = entries.map(entry => this.processEntry(entry)).filter(r => r !== null);
+    this.sortRequests();
+    this.updateRequestTable();
+    this.hideEmptyState();
+    this.hideToast();
   }
 
-  processRealTimeRequest(request, content, encoding) {
+  processEntry(entry) {
     try {
       // Extract headers as plain objects
       const requestHeaders = {};
-      if (request.request && request.request.headers) {
-        request.request.headers.forEach(h => {
+      if (entry.requestHeaders) {
+        entry.requestHeaders.forEach(h => {
           requestHeaders[h.name.toLowerCase()] = h.value;
         });
       }
 
       const responseHeaders = {};
-      if (request.response && request.response.headers) {
-        request.response.headers.forEach(h => {
+      if (entry.responseHeaders) {
+        entry.responseHeaders.forEach(h => {
           responseHeaders[h.name.toLowerCase()] = h.value;
         });
       }
@@ -81,15 +98,15 @@ class BetterInspectPanel {
 
       // Handle request body
       let requestBody = '';
-      if (request.request && request.request.postData) {
-        requestBody = request.request.postData.text || '';
+      if (entry.postData) {
+        requestBody = entry.postData.text || '';
       }
 
       // Handle response body
-      let responseBody = content || '';
-      if (encoding === 'base64') {
+      let responseBody = entry.content || '';
+      if (entry.encoding === 'base64') {
         try {
-          responseBody = atob(content);
+          responseBody = atob(entry.content);
         } catch (e) {
           responseBody = '[Binary data]';
         }
@@ -101,34 +118,40 @@ class BetterInspectPanel {
         responseBody = responseBody.substring(0, maxSize) + '\n\n... [Response truncated]';
       }
 
-      const mimeType = request.response?.content?.mimeType || 
-                       (request.response?.headers?.find(h => h.name.toLowerCase() === 'content-type')?.value) || 
-                       'unknown';
-
       return {
-        id: request.url + '_' + (request.startedDateTime || Date.now()),
-        url: request.url,
-        method: request.method,
+        id: entry.url + '_' + entry.startedDateTime,
+        url: entry.url,
+        method: entry.method,
         requestHeaders: filteredRequestHeaders,
         requestBody: requestBody,
-        responseStatus: request.response?.status || 0,
-        responseStatusText: request.response?.statusText || '',
+        responseStatus: entry.status,
+        responseStatusText: entry.statusText,
         responseHeaders: filteredResponseHeaders,
         responseBody: responseBody,
-        responseSize: request.response?.content?.size || responseBody.length,
-        mimeType: mimeType,
-        startedDateTime: request.startedDateTime || new Date().toISOString(),
-        time: request.time || 0,
-        timings: request.timings || {},
-        queryString: request.request?.queryString || [],
-        type: this.harParser.determineRequestType(
-          { mimeType: mimeType }, 
-          request.url
-        )
+        responseSize: responseBody.length,
+        mimeType: entry.mimeType || 'unknown',
+        startedDateTime: entry.startedDateTime,
+        time: entry.time || 0,
+        timings: entry.timings || {},
+        queryString: entry.queryString || [],
+        type: this.harParser.determineRequestType({ mimeType: entry.mimeType }, entry.url)
       };
     } catch (error) {
-      console.error('Error processing real-time request:', error);
+      console.error('Error processing entry:', error);
       return null;
+    }
+  }
+
+  processRealTimeRequest(request) {
+    const processed = this.processEntry(request);
+    if (processed) {
+      const exists = this.requests.some(r => r.id === processed.id);
+      if (!exists) {
+        this.requests.push(processed);
+        this.sortRequests();
+        this.updateRequestTable();
+        this.hideEmptyState();
+      }
     }
   }
 
@@ -138,10 +161,10 @@ class BetterInspectPanel {
         chrome.runtime.sendMessage({ type: 'getSettings' }, resolve);
       });
       
-      if (response.headerFilters) {
+      if (response && response.headerFilters) {
         this.settings.headerFilters = { ...this.settings.headerFilters, ...response.headerFilters };
       }
-      if (response.responseHandling) {
+      if (response && response.responseHandling) {
         this.settings.responseHandling = { ...this.settings.responseHandling, ...response.responseHandling };
       }
     } catch (error) {
@@ -174,7 +197,11 @@ class BetterInspectPanel {
     });
 
     document.getElementById('refresh-requests').addEventListener('click', () => {
-      this.loadNetworkRequests();
+      this.requests = [];
+      this.updateRequestTable();
+      this.showEmptyState();
+      this.showToast('Refreshing... Please refresh the page (F5)');
+      window.postMessage({ type: 'refreshRequests' }, '*');
     });
 
     document.getElementById('clear-selected').addEventListener('click', () => {
@@ -182,7 +209,11 @@ class BetterInspectPanel {
     });
 
     document.getElementById('refresh-empty').addEventListener('click', () => {
-      this.loadNetworkRequests();
+      this.requests = [];
+      this.updateRequestTable();
+      this.showEmptyState();
+      this.showToast('Refreshing... Please refresh the page (F5)');
+      window.postMessage({ type: 'refreshRequests' }, '*');
     });
 
     // Selection handling
@@ -240,39 +271,19 @@ class BetterInspectPanel {
     });
   }
 
-  async loadNetworkRequests() {
-    this.showToast('Loading network requests...');
-    
-    try {
-      const processedRequests = await this.harParser.getProcessedRequests(
-        this.settings.headerFilters,
-        this.settings.responseHandling
-      );
-      
-      this.requests = processedRequests;
-      this.sortRequests();
-      this.updateRequestTable();
-      this.hideToast();
-      
-      if (this.requests.length === 0) {
-        this.showEmptyState();
-      } else {
-        this.hideEmptyState();
-      }
-    } catch (error) {
-      console.error('Error loading network requests:', error);
-      this.showToast('Failed to load requests: ' + error.message, 'error');
-    }
-  }
-
   sortRequests() {
     this.requests.sort((a, b) => {
       let aValue, bValue;
       
       switch (this.sortBy) {
         case 'name':
-          aValue = new URL(a.url).pathname;
-          bValue = new URL(b.url).pathname;
+          try {
+            aValue = new URL(a.url).pathname;
+            bValue = new URL(b.url).pathname;
+          } catch {
+            aValue = a.url;
+            bValue = b.url;
+          }
           break;
         case 'status':
           aValue = a.responseStatus;
@@ -333,7 +344,6 @@ class BetterInspectPanel {
     tbody.innerHTML = filteredRequests.map((request, index) => {
       const isSelected = this.selectedRequests.some(r => r.id === request.id);
       const selectionOrder = this.selectedRequests.findIndex(r => r.id === request.id) + 1;
-      const statusClass = this.getStatusClass(request.responseStatus);
       
       return `
         <tr class="${isSelected ? 'selected' : ''}" data-request-id="${request.id}">
@@ -585,8 +595,8 @@ class BetterInspectPanel {
       this.hideSettingsModal();
       this.showToast('Settings saved');
       
-      // Reload requests with new settings
-      this.loadNetworkRequests();
+      // Re-process requests with new settings
+      this.processHARData(this.requests);
       
     } catch (error) {
       console.error('Failed to save settings:', error);
@@ -688,5 +698,5 @@ class BetterInspectPanel {
 
 // Initialize the panel when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-  new BetterInspectPanel();
+  window.betterInspectPanel = new BetterInspectPanel();
 });
