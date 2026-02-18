@@ -56,8 +56,8 @@ coverage/
 *.tar
 *.zip
 
-# Generated icon files (keep SVGs)
-icons/*.png
+# Generated icon files (keep SVGs, but also keep final PNGs for extension)
+# icons/*.png  <- commented out, we need the PNGs for the extension
 
 # Environment variables
 .env
